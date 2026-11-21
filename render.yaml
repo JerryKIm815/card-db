@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: card-db
+    runtime: python
+    plan: starter
+    buildCommand: python -m py_compile card_db.py start.py
+    startCommand: python start.py
+    envVars:
+      - key: CARD_DB_PASSWORD
+        sync: false
+      - key: CARD_DB_DATA
+        value: /var/data
+    disk:
+      name: card-data
+      mountPath: /var/data
+      sizeGB: 1
