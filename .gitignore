@@ -6,3 +6,6 @@ _임시업로드/
 .env
 __pycache__/
 *.zip
+
+# GitHub Pages 웹앱의 기본 카드 데이터는 올림
+!docs/seed/*.zip

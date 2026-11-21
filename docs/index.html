@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카드DB</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5bccf">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="카드DB">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+/* 글꼴: 아이카츠 앙코르 카드와 같은 구성 — 제목 주아(Jua), 본문 고운돋움(Gowun Dodum) · 앱 안에 내장 */
+@font-face{font-family:"Gowun Dodum";src:local("Gowun Dodum"),url(fonts/GowunDodum-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Jua";src:local("Jua"),url(fonts/Jua-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+:root{--display:"Jua","Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --jp:"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  --pk0:#fffafc;--pk1:#fff2f6;--pk2:#fde3ec;--pk3:#f8cadb;--pk4:#f0a8c1;--pk5:#e07fa3;--pk6:#c25683;--pk7:#93365f;--ink:#4a2a38;--wine:#5a2a3c}
+body{font-family:var(--body);font-size:14px;color:var(--ink);background:var(--pk1);overscroll-behavior:none}
+header{background:linear-gradient(180deg,#f9cfdd 0%,#f5bccf 100%);color:var(--pk7);border-bottom:1px solid #e7a4bc;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));display:flex;align-items:center;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+header h1{font-size:21px;margin:0 6px 0 2px;font-family:var(--display);font-weight:400;letter-spacing:.3px;color:var(--wine)}
+header h1 span{color:#e0447a}
+aside h3,.dlg .hd span,.tag.gr,.card .ttl,.empty b,.btn,.chip,.sheet .nko,.round{font-family:var(--display);font-weight:400}
+header .info{font-size:12px;margin-left:auto;padding-left:8px}
+.btn{border:1px solid var(--pk4);background:#fff;color:var(--pk7);padding:6px 13px;border-radius:16px;cursor:pointer;font-size:13.5px;white-space:nowrap}
+.btn:active{background:var(--pk2)}.btn:disabled{opacity:.5}
+.btn.primary{background:var(--pk5);color:#fff;border-color:var(--pk6)}
+.btn.danger{color:#b02a2a;border-color:#e2a0a0}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+.layout{display:flex;flex:1;min-height:0}
+aside{width:250px;background:var(--pk0);border-right:1px solid var(--pk3);overflow-y:auto;padding:12px;flex-shrink:0}
+aside h3{font-size:13.5px;margin:14px 0 6px;padding:2px 10px;display:inline-block;border-radius:10px;background:var(--pk3);color:var(--pk7)}
+aside h3:first-of-type{margin-top:0}
+input[type=text],input[type=search],select,textarea{width:100%;padding:7px 9px;border:1px solid var(--pk4);border-radius:10px;font-family:inherit;font-size:16px;background:#fff;color:var(--ink)}
+.chk{display:flex;justify-content:space-between;padding:4px 0;cursor:pointer}
+.chk .cnt{color:#a77;font-size:12px}
+.chklist{max-height:220px;overflow-y:auto}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+.toolbar{background:var(--pk0);border-bottom:1px solid var(--pk3);padding:6px 8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.toolbar select{width:auto;font-size:14px;padding:4px 8px}
+.grow{flex:1}
+#content{flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.card{background:#fff;border:1px solid var(--pk3);border-radius:10px;cursor:pointer;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(147,54,95,.08)}
+.card.sel{border:2px solid var(--pk6);background:var(--pk2)}
+.card .img{aspect-ratio:63/88;background:var(--pk1);overflow:hidden;position:relative}
+.card img{width:100%;height:100%;object-fit:contain;display:block}
+.card .meta{padding:4px 6px 5px;border-top:1px solid var(--pk2)}
+.card .ttl{font-size:12.5px;color:var(--wine);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:16px}
+.card .sub{font-size:10.5px;color:#9a6b7d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.noname{color:#c9a3b2}
+.card input.pick{position:absolute;top:5px;left:5px;width:20px;height:20px;display:none;z-index:3}
+body.selmode .card input.pick{display:block}
+.hrt{position:absolute;top:5px;right:5px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid var(--pk4);color:#d81b60;font-size:13px;display:flex;align-items:center;justify-content:center;z-index:2}
+.qrm{position:absolute;right:5px;top:33px;background:var(--pk7);color:#fff;font-size:9.5px;border-radius:6px;padding:0 4px;z-index:2;font-family:var(--display)}
+.cdb{position:absolute;left:4px;bottom:4px;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(120,70,160,.85);color:#fff;font-size:10px;border-radius:7px;padding:0 5px;z-index:2;font-family:var(--display)}
+.tag{display:inline-block;font-size:10px;padding:0 5px;border:1px solid var(--pk4);border-radius:6px;background:#fff;margin-right:2px;color:var(--pk7)}
+.tag.gr{background:#fff7dd;border-color:#e8c66a;color:#7a5a00}
+table.list{width:100%;border-collapse:collapse;background:#fff;font-size:12px}
+table.list th,table.list td{border:1px solid var(--pk3);padding:4px 5px;text-align:left}
+table.list th{background:var(--pk2);white-space:nowrap;color:var(--pk7)}
+table.list tr.sel td{background:var(--pk2)}
+table.list td.thumb{width:40px;padding:2px}table.list td.thumb img{width:36px;height:50px;object-fit:contain;display:block}
+.pager{padding:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom));border-top:1px solid var(--pk3);background:var(--pk0);display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap}
+.pager .btn{padding:5px 11px}
+.empty{text-align:center;color:#8a5a6c;padding:50px 16px;line-height:1.8}
+.bg{position:fixed;inset:0;background:rgba(90,42,60,.38);display:none;align-items:center;justify-content:center;z-index:20}
+.dlg{background:#fff;border-radius:16px;width:min(720px,96vw);max-height:92vh;overflow-y:auto;display:flex;flex-direction:column}
+.dlg .hd{background:var(--pk2);padding:9px 14px;display:flex;align-items:center;position:sticky;top:0;z-index:1;color:var(--pk7);font-size:15px}
+.dlg .hd span{flex:1}.dlg .bd{padding:14px}
+.bar{height:14px;border-radius:7px;background:var(--pk2);margin-top:8px;overflow:hidden}.bar div{height:100%;background:var(--pk5);width:0}
+.hint{font-size:12px;color:#8a6a76;line-height:1.6;margin-top:5px}
+.opts{display:flex;gap:14px;flex-wrap:wrap;border:1px solid var(--pk3);border-radius:10px;background:var(--pk0);padding:8px 10px;margin:10px 0}
+.pv{max-height:200px;overflow:auto;border:1px solid var(--pk3);border-radius:8px;margin-top:8px;font-size:12px}
+.pv div{padding:2px 6px;border-bottom:1px solid var(--pk1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnts{display:flex;gap:12px;font-size:12px;margin-top:6px;flex-wrap:wrap}
+.form{width:100%;border-collapse:collapse}.form th{width:78px;text-align:left;font-weight:normal;color:#8a5a6c;font-size:12.5px;padding:4px 0}.form td{padding:3px 0}
+.stat{width:100%;border-collapse:collapse;font-size:12px}.stat td{border-bottom:1px solid var(--pk2);padding:2px 0}.stat td:last-child{text-align:right}
+.menu{position:fixed;z-index:25;background:#fff;border:1px solid var(--pk3);border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(147,54,95,.22);display:none;min-width:220px;right:8px;top:calc(52px + env(safe-area-inset-top))}
+.menu button{display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--pk1);background:#fff;padding:12px 15px;font-family:inherit;font-size:14px;color:var(--ink)}
+.menu button:active{background:var(--pk2)}
+.toast{position:fixed;left:50%;bottom:calc(64px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(147,54,95,.94);color:#fff;padding:9px 18px;border-radius:18px;font-size:13px;z-index:60;display:none;max-width:90vw;text-align:center}
+.shade{display:none}
+#bFilter,#aClose{display:none}
+.drop{border:2px dashed var(--pk4);border-radius:14px;background:var(--pk0);padding:18px 8px;text-align:center;color:var(--pk7);line-height:2.2}
+.drop.over{background:var(--pk2)}
+
+/* ===== 카드 정보 시트 (아이카츠 앙코르 카드 화면과 같은 구성) ===== */
+#dDet{align-items:flex-end}
+.sheet{background:#fff;width:min(560px,100vw);max-height:94vh;max-height:94dvh;overflow-y:auto;border-radius:28px 28px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;box-shadow:0 -6px 24px rgba(90,42,60,.18)}
+.grab{width:56px;height:6px;border-radius:3px;background:var(--pk3);margin:2px auto 10px}
+.snav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.snav .cnt{color:#9a6b7d;font-size:16px;letter-spacing:.5px}
+.navbtn{width:54px;height:42px;border-radius:14px;border:2px solid var(--pk2);background:#fff;color:var(--pk5);font-size:22px;line-height:1;cursor:pointer;font-family:var(--display)}
+.navbtn:active{border-color:var(--pk5)}.navbtn:disabled{opacity:.35}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;touch-action:pan-y}
+.face{aspect-ratio:63/88;border-radius:12px;overflow:hidden;position:relative;background:var(--pk1);box-shadow:0 3px 10px rgba(90,42,60,.15)}
+.face img{width:100%;height:100%;object-fit:contain;display:block}
+.gbadge{position:absolute;left:7px;top:7px;background:rgba(160,150,175,.78);color:#fff;font-family:var(--display);font-size:14px;padding:1px 8px;border-radius:7px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fheart{position:absolute;right:7px;top:7px;width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e8a3bc;color:#d81b60;display:flex;align-items:center;justify-content:center;font-size:16px}
+.infoface{background:linear-gradient(160deg,#fde3ec 0%,#fbd1e0 45%,#f6c3d6 100%);display:flex;align-items:center;justify-content:center;padding:14px;text-align:center}
+.infoface:before{content:"";position:absolute;inset:7px;border:2px dashed rgba(255,255,255,.85);border-radius:9px;pointer-events:none}
+.infoface .inner{position:relative;width:100%}
+.infoface .nko{font-family:var(--display);font-size:clamp(17px,5.2vw,24px);color:var(--wine);line-height:1.25;word-break:keep-all}
+.infoface .njp{font-family:var(--jp);font-size:clamp(11px,3.3vw,14px);color:#8a5a6c;margin-top:10px;line-height:1.35}
+.infoface .nno{display:inline-block;margin-top:14px;background:#fff;color:var(--pk7);border-radius:12px;padding:3px 10px;font-size:clamp(11px,3.3vw,14px);font-family:var(--display);box-shadow:0 1px 3px rgba(147,54,95,.15)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 4px}
+.chip{background:var(--pk2);color:var(--wine);border-radius:12px;padding:6px 13px;font-size:15px}
+.chip.gold{background:linear-gradient(180deg,#fbe7a6,#f3d47e);color:#6b4a00}
+.chip.type{color:#c2185b}
+.chip.line{background:#fff;border:2px solid var(--pk2)}
+.chip.codi{background:#efe4fb;color:#6a3f99}
+.actrow{display:flex;align-items:center;gap:12px;margin:12px 0 10px}
+.actrow .lbl{flex:1;color:#9a6b7d;font-size:13px}
+.round{width:62px;height:62px;border-radius:50%;border:2px solid var(--pk2);background:#fff;color:var(--wine);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+.round.qr{font-size:19px;letter-spacing:.5px}
+.round.qr.on{background:var(--wine);color:#fff;border-color:var(--wine)}
+.round.heart{color:#d81b60;font-size:26px;border-color:#e8a3bc}
+.round.heart.on{background:#fbd1e0;border-color:#e07fa3}
+.round:disabled{opacity:.6}
+.memo{background:var(--pk2);border-radius:18px;padding:13px 18px;margin-top:4px}
+.memo .lab{color:#9a6b7d;font-size:13px;margin-bottom:5px}
+.memo .txt{font-size:16.5px;color:var(--wine);white-space:pre-wrap;word-break:break-word}
+.memo .txt.none{color:#c9a3b2;font-size:14px}
+.qtyrow{background:var(--pk2);border-radius:18px;padding:10px 12px 10px 18px;margin-top:10px;display:flex;align-items:center;gap:10px}
+.qtyrow span{flex:1;font-size:16px;color:var(--wine)}
+.qtyrow button{width:54px;height:46px;border-radius:14px;border:none;background:#fff;font-size:24px;color:var(--wine);cursor:pointer}
+.qtyrow b{min-width:42px;text-align:center;font-family:var(--display);font-weight:400;font-size:28px;color:var(--wine)}
+.sec{margin-top:16px}
+.sec h4{font-family:var(--display);font-weight:400;color:var(--pk7);font-size:15.5px;margin:0 0 6px}
+.sec h4 small{font-family:var(--body);color:#9a6b7d;font-size:12px}
+.tanhd{font-size:12.5px;color:var(--pk6);margin:8px 0 4px;font-family:var(--display)}
+.thumbs{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.thumbs div{flex:none;width:68px;font-size:10.5px;line-height:1.25;text-align:center;color:var(--wine);cursor:pointer}
+.thumbs img{width:68px;height:95px;object-fit:contain;background:var(--pk1);border:1px solid var(--pk3);border-radius:7px;display:block;margin-bottom:2px}
+.thumbs div.cur img{border:2px solid #d64f86}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.editbox{display:none;margin-top:12px;background:var(--pk0);border:1px solid var(--pk3);border-radius:14px;padding:10px 12px}
+.editbox.open{display:block}
+.ro{font-size:11.5px;color:#9a7a86;word-break:break-all;line-height:1.6;margin-top:12px;border-top:1px dashed var(--pk3);padding-top:8px}
+.qrview{min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--pk0);border:1px dashed var(--pk4);border-radius:14px;padding:10px}
+.qrview img{max-width:100%;max-height:62vh;object-fit:contain;border-radius:8px}
+@media (min-width:761px){#dDet{align-items:center}.sheet{border-radius:28px;max-height:92vh}}
+@media (max-width:760px){
+  #bFilter,#aClose{display:inline-block}
+  header .info{display:none}
+  aside{position:fixed;z-index:15;top:0;left:0;bottom:0;width:86vw;max-width:340px;transform:translateX(-105%);transition:transform .2s;box-shadow:2px 0 8px rgba(90,42,60,.3);padding-top:max(12px,env(safe-area-inset-top));padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  body.filters aside{transform:none}
+  .shade{position:fixed;inset:0;background:rgba(90,42,60,.3);z-index:14}
+  body.filters .shade{display:block}
+  .toolbar .lbl{display:none}
+  .dlg{width:100vw;height:100%;height:100dvh;max-height:none;border-radius:0}
+  .dlg .hd{padding-top:max(9px,env(safe-area-inset-top))}
+  .dlg .bd{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  .sheet{width:100vw}
+  table.list .hm{display:none}
+  .drop-pc{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <h1><span>♥</span> 카드DB</h1>
+  <button class="btn" id="bFilter">검색·필터</button>
+  <button class="btn primary" id="bReg">등록</button>
+  <button class="btn" id="bSelMode">선택</button>
+  <button class="btn" id="bMenu">더보기 ▾</button>
+  <span class="info" id="hInfo"></span>
+</header>
+<div class="menu" id="menu">
+  <button data-act="info">카드 정보(텍스트) 가져오기</button>
+  <button data-act="dlRes">검색 결과 다운로드 (ZIP)</button>
+  <button data-act="dlAll">전체 다운로드 · 백업 (ZIP)</button>
+  <button data-act="csv">목록 CSV 저장</button>
+  <button data-act="set">설정 · 저장 공간</button>
+  <button data-act="close">닫기</button>
+</div>
+<input type="file" id="upInfo" accept=".txt,.tsv,.csv,text/plain,text/csv,text/tab-separated-values" style="display:none">
+<input type="file" id="upQr" accept="image/*" style="display:none">
+<div class="shade" id="shade"></div>
+<div class="layout">
+  <aside>
+    <button class="btn" id="aClose" style="width:100%;margin-bottom:10px">닫기</button>
+    <h3>검색</h3>
+    <input type="search" id="q" placeholder="이름, 일본어 이름, 번호, 코디, 메모">
+    <div class="hint">공백으로 여러 단어를 넣으면 모두 포함된 카드만 찾습니다.</div>
+    <label class="chk" style="margin-top:6px"><span><input type="checkbox" id="fLiked"> <span style="color:#d81b60">♥</span> 좋아요(원해요)만</span><span class="cnt" id="cLiked"></span></label>
+    <label class="chk"><span><input type="checkbox" id="fQr"> QR 사진 있는 카드만</span><span class="cnt" id="cQr"></span></label>
+    <h3>탄</h3><div id="fTan" class="chklist"></div>
+    <h3>등급</h3><div id="fGrade" class="chklist"></div>
+    <h3>부위</h3><div id="fPart"></div>
+    <h3>코디</h3><div id="fCodi" class="chklist"></div>
+    <h3>언어</h3><div id="fLang"></div>
+    <h3>인식 상태</h3>
+    <label class="chk"><span><input type="checkbox" id="fNoInfo"> 카드 정보 없음</span><span class="cnt" id="cNoInfo"></span></label>
+    <label class="chk"><span><input type="checkbox" id="fNoGrade"> 등급 없음</span><span class="cnt" id="cNoGrade"></span></label>
+    <button class="btn" id="bReset" style="width:100%;margin-top:10px">필터 초기화</button>
+    <h3>통계</h3><table class="stat" id="stat"></table>
+  </aside>
+  <main>
+    <div class="toolbar" id="tbMain">
+      <span class="lbl">정렬</span>
+      <select id="sort"><option value="num">카드 번호순</option><option value="codi">코디별</option><option value="name">이름순</option><option value="grade">등급순</option><option value="liked">좋아요 먼저</option><option value="new">최근 등록순</option></select>
+      <select id="view"><option value="grid">이미지</option><option value="list">목록</option></select>
+      <select id="psize"><option>60</option><option selected>120</option><option>300</option></select>
+      <span class="grow"></span><span id="rInfo"></span>
+    </div>
+    <div class="toolbar" id="tbSel" style="display:none;background:#fff6e5">
+      <b id="selCnt">0장 선택</b>
+      <button class="btn" id="bSelPage">이 페이지 전체</button>
+      <button class="btn" id="bSelNone">해제</button>
+      <button class="btn" id="bSelAll">검색 결과 전체</button>
+      <button class="btn" id="bSelEdit">일괄 수정</button>
+      <button class="btn primary" id="bSelDl">다운로드</button>
+      <button class="btn danger" id="bSelDel">삭제</button>
+      <span class="grow"></span><button class="btn" id="bSelExit">완료</button>
+    </div>
+    <div id="content"><div class="empty">불러오는 중…</div></div>
+    <div class="pager" id="pager"></div>
+  </main>
+</div>
+</div>
+
+<!-- 등록 -->
+<div class="bg" id="dReg"><div class="dlg">
+  <div class="hd"><span>카드 이미지 등록</span><button class="btn" data-close>닫기</button></div>
+  <div class="bd">
+    <div id="seedMsg" style="display:none;background:#fde3ec;color:#5a2a3c;border-radius:12px;padding:10px 12px;margin-bottom:10px;line-height:1.6"></div>
+    <div class="drop" id="dropZone">
+      <label class="btn primary">사진·파일 선택<input type="file" id="upFiles" multiple accept="image/*,.zip,application/zip,.txt,.tsv,.csv,text/plain" style="display:none"></label>
+      <label class="btn">카메라로 촬영<input type="file" id="upCam" accept="image/*" capture="environment" style="display:none"></label>
+      <label class="btn drop-pc">폴더 선택<input type="file" id="upDir" webkitdirectory multiple style="display:none"></label>
+      <div class="drop-pc">또는 이미지·폴더·ZIP·설명 파일을 여기에 끌어다 놓으세요</div>
+    </div>
+    <div class="hint">여러 장을 한 번에 고를 수 있고, ZIP 파일도 됩니다.<br>
+    · 번호 설명 파일(텍스트 .txt / .csv: 번호, 이름, 일본어 이름, 탄, 등급, 타입, 브랜드, 배출처, 부위, 코디, 수량, 메모)을 같이 고르면 카드 정보로 넣고 이미지 파일명(번호)과 연결합니다.<br>
+    · PC 카드DB의 [전체 다운로드] ZIP을 고르면 카드 정보·좋아요·QR 사진까지 모두 옮겨 옵니다.<br>
+    · 같은 이미지는 자동으로 건너뜁니다.</div>
+    <div class="opts">
+      <span><b>중복 이미지</b>&nbsp; <label><input type="radio" name="oDup" value="skip" checked> 건너뛰기</label>
+      <label><input type="radio" name="oDup" value="update"> 분류 정보 갱신</label></span>
+    </div>
+    <div id="stageBox" style="display:none"><div id="stageTxt"></div><div class="pv" id="stageList"></div></div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn primary" id="bStart">등록 시작</button>
+      <button class="btn" id="bClr">목록 비우기</button>
+      <span class="grow"></span>
+      <button class="btn danger" id="bCancel" style="display:none">중단</button>
+      <button class="btn" id="bLog" style="display:none">결과 로그</button>
+    </div>
+    <div id="prog" style="display:none;margin-top:10px">
+      <div id="progTxt"></div><div class="bar"><div id="progBar"></div></div>
+      <div class="cnts" id="progCnt"></div>
+      <div class="hint" id="progCur" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div class="hint" id="progErr" style="color:#b02a2a;white-space:pre-wrap;max-height:90px;overflow:auto"></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- 카드 정보 (시트) -->
+<div class="bg" id="dDet"><div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <div class="snav"><button class="navbtn" id="bPrev">‹</button><span class="cnt" id="dCnt"></span><button class="navbtn" id="bNext">›</button></div>
+  <div class="pair" id="dBig">
+    <div class="face"><img id="dImg" alt=""><span class="gbadge" id="dGb"></span><span class="fheart" id="dFh">♥</span></div>
+    <div class="face infoface"><div class="inner"><div class="nko" id="dNko"></div><div class="njp" id="dNjp"></div><div class="nno" id="dNno"></div></div></div>
+  </div>
+  <div class="chips" id="dChips"></div>
+  <div class="actrow"><span class="lbl" id="dActLbl"></span>
+    <button class="round qr" id="bQr" title="QR 사진">QR</button>
+    <button class="round heart" id="bHeart" title="좋아요(원해요)">♡</button></div>
+  <div class="memo"><div class="lab">메모</div><div class="txt" id="dMemo"></div></div>
+  <div class="qtyrow"><span>가지고 있는 장수</span><button id="bQm">−</button><b id="dQty">0</b><button id="bQp">+</button></div>
+  <div class="sec" id="dCodiWrap"><h4>같은 코디 <small id="dCodiCnt"></small></h4><div id="dCodi"></div></div>
+  <div class="sec" id="dSameWrap"><h4>같은 번호의 다른 카드</h4><div class="thumbs" id="dSame"></div></div>
+  <div class="btnrow">
+    <button class="btn" id="bEdit">수정하기</button>
+    <button class="btn" id="bDl1">이미지 저장</button>
+    <button class="btn danger" id="bDel">삭제</button>
+    <span class="grow"></span><button class="btn" data-close>닫기</button>
+  </div>
+  <div class="editbox" id="editBox">
+    <table class="form">
+      <tr><th>이름</th><td><input type="text" id="eName"></td></tr>
+      <tr><th>일본어 이름</th><td><input type="text" id="eJp"></td></tr>
+      <tr><th>번호</th><td><input type="text" id="eNo" autocapitalize="characters"></td></tr>
+      <tr><th>탄</th><td><input type="text" id="eTan"></td></tr>
+      <tr><th>등급</th><td><input type="text" id="eGrade" autocapitalize="characters"></td></tr>
+      <tr><th>타입</th><td><input type="text" id="eType"></td></tr>
+      <tr><th>브랜드</th><td><input type="text" id="eBrand"></td></tr>
+      <tr><th>배출처</th><td><input type="text" id="eSource"></td></tr>
+      <tr><th>부위</th><td><input type="text" id="ePart" list="partList"><datalist id="partList"><option>상의</option><option>하의</option><option>원피스</option><option>슈즈</option><option>악세</option></datalist></td></tr>
+      <tr><th>코디</th><td><input type="text" id="eCodi" list="codiList" autocomplete="off"><datalist id="codiList"></datalist></td></tr>
+      <tr><th>메모</th><td><textarea id="eMemo" rows="2"></textarea></td></tr>
+    </table>
+    <div style="display:flex;gap:6px;margin-top:8px"><button class="btn primary" id="bSave">저장</button><button class="btn" id="bEditCancel">취소</button></div>
+    <div class="hint">카드 정보는 같은 번호의 카드(한국어·일본어판 등)가 함께 씁니다.</div>
+  </div>
+  <div class="ro" id="dRo"></div>
+</div></div>
+
+<!-- QR 사진 -->
+<div class="bg" id="dQr" style="z-index:30"><div class="dlg" style="width:min(460px,94vw);height:auto;max-height:90vh;border-radius:16px">
+  <div class="hd"><span id="qrTitle">QR 사진</span><button class="btn" id="bQrClose">닫기</button></div>
+  <div class="bd" style="text-align:center">
+    <div class="qrview" id="qrView"></div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+      <button class="btn primary" id="bQrChange">바꾸기</button>
+      <button class="btn" id="bQrSave">저장</button>
+      <button class="btn danger" id="bQrDel">지우기</button>
+    </div>
+    <div class="hint">카드 뒷면의 QR 코드 사진 등을 카드마다 1장 넣어 둘 수 있습니다.</div>
+  </div>
+</div></div>
+
+<!-- 일괄 수정 -->
+<div class="bg" id="dBulk"><div class="dlg" style="width:min(440px,96vw);height:auto;max-height:none">
+  <div class="hd"><span id="bulkTitle">선택한 카드 일괄 수정</span><button class="btn" data-close>닫기</button></div>
+  <div class="bd">
+    <table class="form">
+      <tr><th>코디</th><td><input type="text" id="kCodi" list="codiList" placeholder="비워 두면 변경 안 함" autocomplete="off"></td></tr>
+      <tr><th></th><td><label class="hint"><input type="checkbox" id="kCodiClr"> 코디 지우기</label></td></tr>
+      <tr><th>좋아요</th><td><select id="kLike"><option value="">변경 안 함</option><option value="1">♥ 좋아요</option><option value="0">♡ 해제</option></select></td></tr>
+      <tr><th>등급</th><td><input type="text" id="kGrade" placeholder="비워 두면 변경 안 함" autocapitalize="characters"></td></tr>
+      <tr><th>언어</th><td><select id="kLang"><option value="">변경 안 함</option><option>한국어</option><option>일본어</option><option>기타</option></select></td></tr>
+      <tr><th>메모 추가</th><td><input type="text" id="kMemo" placeholder="기존 메모 뒤에 덧붙임"></td></tr>
+    </table>
+    <div class="hint">같은 이름의 코디는 다른 탄의 카드와도 같은 코디로 묶입니다.</div>
+    <button class="btn primary" id="bBulkApply" style="width:100%;margin-top:12px;padding:9px">적용</button>
+  </div>
+</div></div>
+
+<!-- 설정 -->
+<div class="bg" id="dSet"><div class="dlg">
+  <div class="hd"><span>설정 · 저장 공간</span><button class="btn" data-close>닫기</button></div>
+  <div class="bd">
+    <label>등급 목록 (높은 등급부터, 쉼표 구분)</label>
+    <textarea id="sGrades" rows="3"></textarea>
+    <div class="hint">파일 이름에서 이 목록의 글자를 등급으로 인식하고, 이 순서로 등급 정렬합니다.</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn primary" id="bSaveSet">저장</button>
+      <button class="btn" id="bReparse">저장 후 전체 다시 분석</button>
+    </div>
+    <div class="hint">전체 다시 분석은 모든 카드의 언어·세트·번호·등급을 파일 이름에서 다시 뽑고, 카드 정보와 다시 연결합니다(카드 정보·좋아요·QR은 유지).</div>
+    <h4 style="margin:16px 0 6px;color:var(--pk7)">저장 공간</h4>
+    <div id="sStore" class="hint"></div>
+    <div class="hint">카드 데이터는 이 휴대폰 안의 데이터베이스에만 저장됩니다. 앱을 삭제하면 데이터도 지워지므로, 가끔 [더보기 → 전체 다운로드 · 백업]으로 백업해 두세요. 백업 ZIP은 [등록]에서 다시 불러올 수 있습니다.</div>
+    <div id="seedBox" style="display:none"><h4 style="margin:16px 0 6px;color:var(--pk7)">기본 카드 데이터</h4>
+      <div class="hint" id="seedInfo"></div>
+      <button class="btn" id="bSeed" style="margin-top:6px">기본 카드 데이터 넣기</button>
+      <div class="hint">모두 지웠거나 중간에 멈췄을 때 다시 넣을 수 있습니다. 이미 있는 카드는 건너뜁니다.</div></div>
+    <h4 style="margin:16px 0 6px;color:#b02a2a">초기화</h4>
+    <button class="btn danger" id="bWipe">모든 카드 삭제</button>
+    <div class="hint" id="sVer"></div>
+  </div>
+</div></div>
+
+<!-- 저장 준비 (아이폰: 공유 시트로 저장) -->
+<div class="bg" id="dSave" style="z-index:40"><div class="dlg" style="width:min(420px,96vw);height:auto;max-height:none">
+  <div class="hd"><span>파일 저장</span><button class="btn" data-close>닫기</button></div>
+  <div class="bd">
+    <div id="saveTxt"></div>
+    <button class="btn primary" id="bShare" style="width:100%;margin-top:12px;padding:10px">저장하기</button>
+    <div class="hint">공유 화면에서 이미지는 "이미지 저장"(사진 앱), ZIP은 "파일에 저장"을 고르세요.</div>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<script src="jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
