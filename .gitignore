@@ -1,0 +1,8 @@
+*.sqlite3
+*.sqlite3-*
+카드이미지저장소/
+등록결과/
+_임시업로드/
+.env
+__pycache__/
+*.zip
