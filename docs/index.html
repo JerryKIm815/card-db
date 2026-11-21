@@ -146,6 +146,17 @@ table.list td.thumb{width:40px;padding:2px}table.list td.thumb img{width:36px;he
 .ro{font-size:11.5px;color:#9a7a86;word-break:break-all;line-height:1.6;margin-top:12px;border-top:1px dashed var(--pk3);padding-top:8px}
 .qrview{min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--pk0);border:1px dashed var(--pk4);border-radius:14px;padding:10px}
 .qrview img{max-width:100%;max-height:62vh;object-fit:contain;border-radius:8px}
+.card,table.list tr[data-k]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.card img{-webkit-user-drag:none;pointer-events:none}
+.card.dragging,table.list tr.dragging{opacity:.35}
+.ghost{position:fixed;z-index:70;pointer-events:none;opacity:.88;transform:scale(1.06);box-shadow:0 8px 22px rgba(90,42,60,.35);border-radius:10px;background:#fff}
+tr.ghost{display:table;background:#fff}
+.ghostcnt{position:absolute;right:-6px;top:-8px;background:#d64f86;color:#fff;border-radius:10px;padding:1px 7px;font-size:12px;font-family:var(--display)}
+.card.drop-before{box-shadow:-5px 0 0 #d64f86}.card.drop-after{box-shadow:5px 0 0 #d64f86}
+table.list tr.drop-before td{border-top:3px solid #d64f86}table.list tr.drop-after td{border-bottom:3px solid #d64f86}
+.ordno{position:absolute;left:4px;top:4px;background:rgba(147,54,95,.85);color:#fff;font-size:10px;border-radius:6px;padding:0 5px;z-index:2;font-family:var(--display)}
+.ordrow button{width:auto;min-width:46px;padding:0 10px;font-size:16px}
+.ordrow input{height:40px;border-radius:12px;border:none;font-size:16px}
 @media (min-width:761px){#dDet{align-items:center}.sheet{border-radius:28px;max-height:92vh}}
 @media (max-width:760px){
   #bFilter,#aClose{display:inline-block}
@@ -207,10 +218,14 @@ table.list td.thumb{width:40px;padding:2px}table.list td.thumb img{width:36px;he
   <main>
     <div class="toolbar" id="tbMain">
       <span class="lbl">정렬</span>
-      <select id="sort"><option value="num">카드 번호순</option><option value="codi">코디별</option><option value="name">이름순</option><option value="grade">등급순</option><option value="liked">좋아요 먼저</option><option value="new">최근 등록순</option></select>
+      <select id="sort"><option value="num">카드 번호순</option><option value="codi">코디별</option><option value="name">이름순</option><option value="grade">등급순</option><option value="liked">좋아요 먼저</option><option value="new">최근 등록순</option><option value="user">사용자 정렬 (길게 눌러 옮기기)</option></select>
       <select id="view"><option value="grid">이미지</option><option value="list">목록</option></select>
       <select id="psize"><option>60</option><option selected>120</option><option>300</option></select>
       <span class="grow"></span><span id="rInfo"></span>
+    </div>
+    <div class="toolbar" id="tbUser" style="display:none;background:#fff6f9">
+      <span class="hint" style="margin:0;flex:1">카드를 길게 누른 채 끌어서 옮기세요. 다른 정렬에서도 옮길 수 있습니다.</span>
+      <button class="btn" id="bOrdUndo">되돌리기</button>
     </div>
     <div class="toolbar" id="tbSel" style="display:none;background:#fff6e5">
       <b id="selCnt">0장 선택</b>
@@ -278,6 +293,8 @@ table.list td.thumb{width:40px;padding:2px}table.list td.thumb img{width:36px;he
     <button class="round heart" id="bHeart" title="좋아요(원해요)">♡</button></div>
   <div class="memo"><div class="lab">메모</div><div class="txt" id="dMemo"></div></div>
   <div class="qtyrow"><span>가지고 있는 장수</span><button id="bQm">−</button><b id="dQty">0</b><button id="bQp">+</button></div>
+  <div class="qtyrow ordrow"><span>순서 <small id="dOrd" style="color:#9a6b7d"></small></span>
+    <button id="bOrdFirst" title="맨 앞으로">⇤</button><input type="text" id="eOrd" inputmode="numeric" placeholder="n" style="width:56px;text-align:center"><button id="bOrdGo" title="n번째로">이동</button><button id="bOrdLast" title="맨 뒤로">⇥</button></div>
   <div class="sec" id="dCodiWrap"><h4>같은 코디 <small id="dCodiCnt"></small></h4><div id="dCodi"></div></div>
   <div class="sec" id="dSameWrap"><h4>같은 번호의 다른 카드</h4><div class="thumbs" id="dSame"></div></div>
   <div class="btnrow">

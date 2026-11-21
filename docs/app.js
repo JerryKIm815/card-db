@@ -2,7 +2,7 @@
  * 데이터는 모두 이 기기 안에 저장됩니다. (서버 없음)
  */
 "use strict";
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.5.0";
 const DEFAULT_GRADES = "SEC, UR, SAR, SSR, CHR, CSR, HR, AR, SR, RRR, RR, R, UC, U, C, PR, P, L, SP, ST";
 const IMG_RE = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i, ZIP_RE = /\.zip$/i, TXT_RE = /\.(txt|tsv|csv)$/i;
 const IS_ANDROID_APP = !!window.CardApp;
@@ -205,7 +205,11 @@ async function loadAll() {
   cards = await reqP(tx("cards").objectStore("cards").getAll());
   byId = new Map(cards.map(c => [c.id, c])); bySha = new Map(cards.map(c => [c.sha256, c]));
   infoMap = new Map((await reqP(tx("info").objectStore("info").getAll())).map(r => [r.key, r]));
+  // 사용자 정렬 순서가 없는 카드(이전 버전)는 등록 순서대로 뒤에 붙임
+  const miss = cards.filter(c => typeof c.user_order !== "number").sort((a, b) => a.id - b.id);
+  if (miss.length) { let o = maxOrder(); miss.forEach(c => c.user_order = (o += 1024)); await putCards(miss); }
 }
+const maxOrder = () => cards.reduce((m, c) => typeof c.user_order === "number" && c.user_order > m ? c.user_order : m, 0);
 const gradeRank = g => { const i = gradeList.indexOf(String(g || "").split(/[\s+/]/)[0].toUpperCase()); return i < 0 ? 999 : i; };
 
 /* ======================= 썸네일·해시 ======================= */
@@ -282,6 +286,7 @@ async function registerBatch(items, dup, st, onEach) {
     if (p.status === "added") {
       const rec = Object.assign({ file_name: p.it.name.normalize("NFC"), src_path: (p.it.path || "").normalize("NFC"), memo: "", sha256: p.sha, size: p.blob.size, mime: p.blob.type, created_at: now, updated_at: now, liked: 0, has_qr: 0, info_key: "" }, p.meta);
       if (!rec.memo) rec.memo = "";
+      rec.user_order = (st.nextOrder = (st.nextOrder || maxOrder()) + 1024);   // 사용자 정렬: 맨 뒤에
       extra(rec, p, false);
       const r = cs.add(rec);
       r.onsuccess = () => { rec.id = r.result; p.id = rec.id; fs.put({ img: p.blob, thumb: p.thumb }, rec.id); if (p.qrFor) qs.put(p.qr, rec.id); p.rec = rec; };
@@ -447,7 +452,8 @@ function currentFilter() {
     num: byNum, grade: (a, b) => gradeRank(gradeOf(a)) - gradeRank(gradeOf(b)) || byNum(a, b),
     name: (a, b) => (!nameOf(a)) - (!nameOf(b)) || cmp(nameOf(a), nameOf(b)) || byNum(a, b),
     liked: (a, b) => (b.liked ? 1 : 0) - (a.liked ? 1 : 0) || byNum(a, b),
-    new: (a, b) => b.id - a.id
+    new: (a, b) => b.id - a.id,
+    user: (a, b) => (a.user_order || 0) - (b.user_order || 0) || a.id - b.id
   }[s] || byNum);
   return list;
 }
@@ -478,7 +484,11 @@ async function render() {
     box.innerHTML = `<table class="list"><tr><th></th><th>♥</th><th>번호</th><th>이름</th><th>탄</th><th>등급</th><th class="hm">부위</th><th class="hm">코디</th><th class="hm">수량</th></tr>${items.map((c, k) => { const i = I(c); return `
       <tr data-k="${k}" class="${picked.has(c.id) ? "sel" : ""}"><td class="thumb"><img data-id="${c.id}" alt=""></td><td style="color:#d81b60">${c.liked ? "♥" : ""}</td><td>${esc(noOf(c))}</td><td>${esc(nameOf(c))}</td><td>${esc(i.tan)}</td><td>${esc(gradeOf(c))}</td><td class="hm">${esc(i.part)}</td><td class="hm">${esc(i.codi)}</td><td class="hm">${esc(i.qty)}</td></tr>`; }).join("")}</table>`;
   }
+  if ($("sort").value === "user") box.querySelectorAll(".grid .card").forEach((el, k) => { const o = document.createElement("span"); o.className = "ordno"; o.textContent = page * ps + k + 1; el.querySelector(".img").appendChild(o); });
+  $("tbUser").style.display = $("sort").value === "user" && !document.body.classList.contains("selmode") ? "flex" : "none";
+  setupTouchDrag(box, items, ps);
   box.querySelectorAll("[data-k]").forEach(el => el.onclick = () => {
+    if (dragJustEnded) return;
     const c = items[+el.dataset.k];
     if (document.body.classList.contains("selmode")) {
       picked.has(c.id) ? picked.delete(c.id) : picked.add(c.id);
@@ -503,6 +513,114 @@ async function render() {
   got.forEach((f, i) => { if (!f) return; const u = URL.createObjectURL(f.thumb || f.img); pageUrls.push(u); imgs[i].src = u; });
 }
 async function refresh() { buildFacets(); apply(); }
+
+/* ======================= 순서 옮기기 (어느 정렬에서나: 길게 눌러 끌기) ======================= */
+const SORT_NAME = () => { const o = $("sort").selectedOptions[0]; return o ? o.textContent : ""; };
+/* 사용자 정렬이 아니면: 지금 보이는 순서를 사용자 정렬 순서로 가져옴 (보이는 카드들 자리 안에서만). 되돌리기용 백업 */
+async function adoptOrder() {
+  if ($("sort").value === "user") return false;
+  const backup = {}; cards.forEach(c => backup[c.id] = c.user_order);
+  await setSetting("order_backup", backup);
+  const slots = filtered.map(c => c.user_order).sort((a, b) => a - b);
+  filtered.forEach((c, i) => c.user_order = slots[i]);
+  await putCards(filtered);
+  $("sort").value = "user"; setSetting("sort", "user").catch(() => { });
+  return true;
+}
+/* ids 카드를 지금 목록의 pos번째 자리(0부터, 옮길 카드를 뺀 목록 기준)로 */
+async function moveCardsTo(ids, pos) {
+  const from = SORT_NAME(), adopted = await adoptOrder();
+  const set = new Set(ids);
+  const list = [...filtered].sort((a, b) => a.user_order - b.user_order || a.id - b.id);
+  const moving = list.filter(c => set.has(c.id)), rest = list.filter(c => !set.has(c.id));
+  pos = Math.max(0, Math.min(rest.length, pos));
+  let lo = pos > 0 ? rest[pos - 1].user_order : (rest.length ? rest[0].user_order - 1024 * (moving.length + 1) : 0);
+  let hi = pos < rest.length ? rest[pos].user_order : lo + 1024 * (moving.length + 1);
+  if ((hi - lo) / (moving.length + 1) < 1e-6) {   // 간격이 좁아지면 전체 다시 번호
+    [...cards].sort((a, b) => a.user_order - b.user_order || a.id - b.id).forEach((c, i) => c.user_order = (i + 1) * 1024);
+    await putCards(cards); return moveCardsTo(ids, pos);
+  }
+  const step = (hi - lo) / (moving.length + 1);
+  moving.forEach((c, i) => c.user_order = lo + step * (i + 1));
+  await putCards(moving);
+  filtered = currentFilter(); render();
+  toast(adopted ? `'${from}' 순서를 사용자 정렬로 가져와 옮겼습니다. ([되돌리기] 가능)` : `${moving.length > 1 ? moving.length + "장을 " : ""}옮겼습니다.`, adopted ? 3500 : 1500);
+}
+$("bOrdUndo").onclick = async () => {
+  const b = await getSetting("order_backup", null); if (!b) return toast("되돌릴 내용이 없습니다.");
+  if (!confirm("다른 정렬에서 옮기기 전의 사용자 정렬 순서로 되돌릴까요?")) return;
+  cards.forEach(c => { if (b[c.id] !== undefined) c.user_order = b[c.id]; }); await putCards(cards);
+  await setSetting("order_backup", null); filtered = currentFilter(); render(); toast("되돌렸습니다.");
+};
+/* 길게 누른 뒤 끌기 (터치·마우스 공통). 짧게 누르면 그대로 카드 열기, 바로 밀면 화면 스크롤 */
+let dragJustEnded = false;
+function setupTouchDrag(box, items, ps) {
+  const grid = $("view").value === "grid";
+  box.querySelectorAll("[data-k]").forEach(el => {
+    let timer = null, sx = 0, sy = 0, drag = null;
+    const pt = e => e.touches ? e.touches[0] || e.changedTouches[0] : e;
+    const start = e => {
+      if (e.button > 0) return;
+      const p = pt(e); sx = p.clientX; sy = p.clientY;
+      timer = setTimeout(() => begin(p), 450);
+    };
+    const begin = p => {
+      timer = null;
+      const c = items[+el.dataset.k];
+      const ids = picked.has(c.id) && picked.size > 1 ? [...picked] : [c.id];
+      const ghost = el.cloneNode(true); ghost.className += " ghost";
+      const r = el.getBoundingClientRect(); ghost.style.width = r.width + "px";
+      document.body.appendChild(ghost);
+      if (ids.length > 1) { const b = document.createElement("span"); b.className = "ghostcnt"; b.textContent = ids.length + "장"; ghost.appendChild(b); }
+      drag = { ids, ghost, ox: p.clientX - r.left, oy: p.clientY - r.top, target: null, after: false, scroll: 0 };
+      el.classList.add("dragging"); try { navigator.vibrate && navigator.vibrate(25); } catch (x) { }
+      place(p);
+      drag.timer = setInterval(() => { if (drag && drag.scroll) $("content").scrollTop += drag.scroll; }, 16);
+    };
+    const place = p => {
+      drag.ghost.style.left = (p.clientX - drag.ox) + "px"; drag.ghost.style.top = (p.clientY - drag.oy) + "px";
+      drag.ghost.style.display = "none"; const under = document.elementFromPoint(p.clientX, p.clientY); drag.ghost.style.display = "";
+      const t = under && under.closest("#content [data-k]");
+      document.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before", "drop-after"));
+      if (t && t !== el) { const r = t.getBoundingClientRect(); drag.after = grid ? p.clientX > r.left + r.width / 2 : p.clientY > r.top + r.height / 2;
+        t.classList.add(drag.after ? "drop-after" : "drop-before"); drag.target = t; } else drag.target = null;
+      const cr = $("content").getBoundingClientRect();   // 위·아래 끝에서 자동 스크롤
+      drag.scroll = p.clientY < cr.top + 60 ? -12 : p.clientY > cr.bottom - 60 ? 12 : 0;
+    };
+    const move = e => {
+      const p = pt(e);
+      if (timer && (Math.abs(p.clientX - sx) > 8 || Math.abs(p.clientY - sy) > 8)) { clearTimeout(timer); timer = null; }
+      if (drag) { if (e.cancelable) e.preventDefault(); place(p); }
+    };
+    const end = async e => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (!drag) return;
+      const d = drag; drag = null; clearInterval(d.timer); d.ghost.remove(); el.classList.remove("dragging");
+      document.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before", "drop-after"));
+      dragJustEnded = true; setTimeout(() => dragJustEnded = false, 350);
+      if (!d.target || e.type === "touchcancel") return;
+      const tc = items[+d.target.dataset.k]; if (d.ids.includes(tc.id)) return;
+      const rest = filtered.filter(c => !d.ids.includes(c.id));
+      await moveCardsTo(d.ids, rest.indexOf(tc) + (d.after ? 1 : 0));
+    };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end); el.addEventListener("touchcancel", end);
+    el.addEventListener("mousedown", e => { start(e);
+      const mm = ev => move(ev), mu = ev => { document.removeEventListener("mousemove", mm); document.removeEventListener("mouseup", mu); end(ev); };
+      document.addEventListener("mousemove", mm); document.addEventListener("mouseup", mu); });
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  });
+}
+/* 카드 정보 화면에서 순서 옮기기 */
+async function moveDetailTo(n) {
+  const c = filtered[detIdx]; if (!c) return;
+  await moveCardsTo([c.id], n - 1);
+  const j = filtered.indexOf(c); if (j >= 0) { page = Math.floor(j / +$("psize").value); render(); openDetail(j); }
+}
+$("bOrdFirst").onclick = () => moveDetailTo(1);
+$("bOrdLast").onclick = () => moveDetailTo(1e9);
+$("bOrdGo").onclick = () => { const n = parseInt($("eOrd").value, 10); if (!(n > 0)) return toast("몇 번째로 옮길지 숫자를 넣으세요."); moveDetailTo(n); };
 
 /* ======================= 카드 정보 시트 ======================= */
 let detUrls = [];
@@ -534,6 +652,7 @@ async function openDetail(k) {
   $("dActLbl").textContent = [c.liked ? "♥ 좋아요" : "", c.has_qr ? "QR 사진 있음" : ""].filter(Boolean).join(" · ");
   const memo = memoOf(c); $("dMemo").textContent = memo || "메모 없음"; $("dMemo").classList.toggle("none", !memo);
   $("dQty").textContent = parseInt(i.qty, 10) || 0;
+  $("dOrd").textContent = `${(k + 1).toLocaleString()} / ${filtered.length.toLocaleString()}`; $("eOrd").value = "";
   $("editBox").classList.remove("open");
   $("dRo").innerHTML = `${esc(c.file_name)} · ${(c.size / 1024).toFixed(0)} KB · 등록 ${esc(c.created_at)}${c.src_path ? `<br>가져온 위치: ${esc(c.src_path)}` : ""}`;
   show("dDet"); $("sheet").scrollTop = 0;
